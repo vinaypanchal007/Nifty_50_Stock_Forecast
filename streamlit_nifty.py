@@ -53,9 +53,6 @@ days = st.number_input(
 if st.button("Predict"):
     forecast = model.forecast(steps=int(days))
 
-    st.subheader(f"Forecast for next {int(days)} business days")
-    st.dataframe(forecast.rename("Predicted Close Price"))
-
     fig, ax = plt.subplots()
     df["Close"].tail(200).plot(ax=ax, label="Historical")
     forecast.plot(ax=ax, label="Forecast", color="red")
@@ -63,3 +60,6 @@ if st.button("Predict"):
     ax.set_ylabel("NIFTY 50 Closing Price")
     ax.legend()
     st.pyplot(fig)
+
+    st.subheader(f"Forecast for next {int(days)} business days")
+    st.dataframe(forecast.rename("Predicted Close Price"))
