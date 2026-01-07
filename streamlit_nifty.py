@@ -5,42 +5,48 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from pmdarima import auto_arima
-from statsmodels.tsa.statespace.sarimax import SARIMAX
 
-st.set_page_config(page_title="NIFTY 50 Forecast", layout="centered")
+st.set_page_config(
+    page_title="NSE Index Forecast",
+    layout="centered"
+)
 
-st.title("NIFTY 50 Stock Price Forecast")
-st.write("Auto-ARIMA + SARIMAX forecasting using historical NSE data")
+st.title("NSE Index Stock Price Forecast")
+st.write("Auto-ARIMA forecasting using historical NSE index data")
 
 @st.cache_data
 def load_data():
     df = pd.read_csv("nse_indexes.csv")
-    df = df[df["Index"] == "NIFTY 50"]
     df["Date"] = pd.to_datetime(df["Date"])
-    df = df.set_index("Date").sort_index()
-    df = df.asfreq("B")
-    df["Close"] = df["Close"].ffill()
     return df
 
 @st.cache_resource
 def train_model(series):
-    arima_model = auto_arima(
+    model = auto_arima(
         series,
         seasonal=False,
         m=1,
         stepwise=True,
         suppress_warnings=True
     )
+    return model
 
-    model = SARIMAX(
-        series,
-        order=arima_model.order,
-        seasonal_order=arima_model.seasonal_order
-    )
+df_raw = load_data()
 
-    return model.fit()
+index_list = sorted(df_raw["Index"].unique())
 
-df = load_data()
+selected_index = st.selectbox(
+    "Select Index",
+    index_list,
+    index_list.index("NIFTY 50") if "NIFTY 50" in index_list else 0
+)
+
+df = df_raw[df_raw["Index"] == selected_index].copy()
+
+df = df.set_index("Date").sort_index()
+df = df.asfreq("B")
+df["Close"] = df["Close"].ffill()
+
 model = train_model(df["Close"])
 
 days = st.number_input(
@@ -51,15 +57,28 @@ days = st.number_input(
 )
 
 if st.button("Predict"):
-    forecast = model.forecast(steps=int(days))
+    forecast = model.predict(n_periods=int(days))
 
-    fig, ax = plt.subplots()
+    forecast_index = pd.date_range(
+        start=df.index[-1] + pd.offsets.BDay(),
+        periods=int(days),
+        freq="B"
+    )
+
+    forecast = pd.Series(forecast, index=forecast_index)
+
+    fig, ax = plt.subplots(figsize=(10, 5))
     df["Close"].tail(200).plot(ax=ax, label="Historical")
     forecast.plot(ax=ax, label="Forecast", color="red")
-    ax.set_xlabel("Time")
-    ax.set_ylabel("NIFTY 50 Closing Price")
+
+    ax.set_title(f"{selected_index} Price Forecast")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Closing Price")
     ax.legend()
+
     st.pyplot(fig)
 
     st.subheader(f"Forecast for next {int(days)} business days")
-    st.dataframe(forecast.rename("Predicted Close Price"))
+    st.dataframe(
+        forecast.rename("Predicted Close Price").to_frame()
+    )
