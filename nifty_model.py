@@ -38,5 +38,3 @@ model1 = SARIMAX(
 )
 
 result = model1.fit()
-
-joblib.dump(result, 'Nifty_Predictor.joblib')
